@@ -1,0 +1,39 @@
+// Query 1: Firewall Allow/Deny trend (time series)
+AzureDiagnostics
+| where TimeGenerated > ago(24h)
+| where ResourceType == "AZUREFIREWALLS"
+| where Category in ("AzureFirewallNetworkRule", "AzureFirewallApplicationRule")
+| extend Action = tostring(action_s)
+| summarize Events=count() by bin(TimeGenerated, 15m), Action
+| order by TimeGenerated asc
+
+// Query 2: Top source/destination pairs
+AzureDiagnostics
+| where TimeGenerated > ago(24h)
+| where ResourceType == "AZUREFIREWALLS"
+| extend Src=tostring(msg_s), Dst=tostring(target_s)
+| summarize Events=count() by Src, Dst
+| top 20 by Events desc
+
+// Query 3: Protocol and port distribution
+AzureDiagnostics
+| where TimeGenerated > ago(24h)
+| where ResourceType == "AZUREFIREWALLS"
+| summarize Events=count() by protocol_s, DestinationPort=destinationPort_s
+| top 30 by Events desc
+
+// Query 4: VPN gateway diagnostics overview
+AzureDiagnostics
+| where TimeGenerated > ago(24h)
+| where ResourceType == "VIRTUALNETWORKGATEWAYS"
+| summarize Events=count() by Category, bin(TimeGenerated, 15m)
+| order by TimeGenerated asc
+
+// Query 5: Heatmap-ready dataset (hour x action)
+AzureDiagnostics
+| where TimeGenerated > ago(7d)
+| where ResourceType == "AZUREFIREWALLS"
+| extend Hour = format_datetime(TimeGenerated, "HH"), Action=tostring(action_s)
+| summarize Events=count() by Hour, Action
+| order by Hour asc
+
