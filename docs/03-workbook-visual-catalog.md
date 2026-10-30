@@ -1,35 +1,36 @@
-# Workbook 시각화 카탈로그
+# Workbook 시각화 카탈로그 (구현 매핑)
 
-## 설계 원칙
-- 운영자가 즉시 이상 징후를 파악하도록 Overview → Drilldown 순서로 배치
-- 동일한 시간축/필터를 모든 차트에 공통 적용
-- "보여주기"보다 "원인 추적 가능성"을 우선
+## 공통 파라미터
+| 이름 | 타입 | 기본값 | 적용 |
+|---|---|---|---|
+| `pTimeRange` | Time range | 24h | 모든 쿼리의 TimeGenerated 필터 |
+| `pAction` | Dropdown(All/Allow/Deny) | All | Firewall 액션 필터 |
+| `pRG` | Text/Resource | 현재 RG | `_ResourceId` 또는 ResourceGroup 필터 |
 
-## 권장 시각화 세트
-1. **KPI Tiles**  
-   - 총 이벤트 수, Deny 비율, 활성 연결 수, 상위 룰 히트
-2. **Time-series (Line/Area)**  
-   - Allow vs Deny 추세
-3. **Heatmap**  
-   - 시간대/요일별 이벤트 밀도
-4. **Donut/Pie**  
-   - 프로토콜/포트/액션 분포
-5. **Grid + Conditional Formatting**  
-   - Top Source IP, Destination, Rule, Bytes
-6. **Flow/Sankey 유사 구조**  
-   - Source VNet → Firewall Rule → Destination
-7. **Detail Table(Drilldown)**  
-   - 선택한 시점/대상의 원시 로그
+## 시각화별 구현 정의
+| 시각화 | 쿼리 블록 | Workbook 표현 | 필드 매핑 |
+|---|---|---|---|
+| KPI: Total Events | `FW_Base` | Tile | `TotalEvents` |
+| KPI: Deny Ratio | `FW_DenyRatio` | Tile (Percent) | `DenyRatio` |
+| Allow vs Deny Trend | `FW_TimeSeries` | Line/Area | X=`TimeGenerated`, Y=`Events`, Split=`Action` |
+| Heatmap | `FW_Heatmap` | Heatmap | X=`Hour`, Y=`Action`, Color=`Events` |
+| Protocol/Port 분포 | `FW_ProtoPort` | Donut | Slice=`ProtoPort`, Value=`Events` |
+| Top Flow | `FW_TopFlow` | Grid | `SrcIp,DstIp,Action,Events` |
+| VPN Health | `VPN_Health` | Grid/Bar | `Category,Events` |
+| Drilldown Raw | `FW_Raw` | Table | `TimeGenerated,msg_s,Category,Resource` |
 
-## 추천 레이아웃
-- Row 1: KPI Tiles
-- Row 2: Time-series + Heatmap
-- Row 3: Donut + Top N Grid
-- Row 4: Flow view
-- Row 5: Detail logs
+## 레이아웃 권장
+1. Row 1: KPI 2개 + VPN Health
+2. Row 2: Allow/Deny Trend + Heatmap
+3. Row 3: ProtoPort Donut + Top Flow Grid
+4. Row 4: Drilldown Raw Table
 
-## 분석 질문 예시
-- Deny 급증은 특정 시간대/서브넷/규칙에 집중되는가?
-- VPN 관련 이벤트 증가와 Firewall Deny가 동시 발생하는가?
-- VNet 간 허용 트래픽이 특정 포트/목적지에 편중되는가?
+## Drilldown 규칙
+- Trend 또는 Top Flow에서 선택한 시간/대상 값을 `FW_Raw`에 전달
+- 선택이 없을 때는 `pTimeRange` 전체 표시
+- 빈 결과 시 메시지: `No data in current filter`
 
+## 합격 조건
+- `pAction` 변경 시 KPI/Trend/Heatmap/Top Flow가 동시에 일관되게 변함
+- Drilldown이 선택 값 기준으로 좁혀짐
+- Deny 테스트 후 Trend와 Heatmap에 변화가 확인됨

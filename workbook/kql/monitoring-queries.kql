@@ -1,39 +1,63 @@
-// Query 1: Firewall Allow/Deny trend (time series)
-AzureDiagnostics
-| where TimeGenerated > ago(24h)
-| where ResourceType == "AZUREFIREWALLS"
-| where Category in ("AzureFirewallNetworkRule", "AzureFirewallApplicationRule")
-| extend Action = tostring(action_s)
+// Workbook Parameter Example
+// pTimeRange: time range
+// pAction: All / Allow / Deny
+// pRG: resource group name
+
+let FW_Base = () {
+    AzureDiagnostics
+    | where TimeGenerated {TimeRange:pTimeRange}
+    | where ResourceType == "AZUREFIREWALLS"
+    | where Category in ("AzureFirewallNetworkRule", "AzureFirewallApplicationRule")
+    | where isempty("{pRG}") or ResourceGroup == "{pRG}"
+    | extend Action = coalesce(tostring(action_s), extract(@"Action: ([A-Za-z]+)", 1, msg_s), "Unknown")
+    | where "{pAction}" == "All" or Action =~ "{pAction}"
+    | extend SrcIp = extract(@"from ([0-9]{1,3}(?:\\.[0-9]{1,3}){3})", 1, msg_s)
+    | extend DstIp = extract(@"to ([0-9]{1,3}(?:\\.[0-9]{1,3}){3})", 1, msg_s)
+    | extend DstPort = toint(extract(@"to [0-9]{1,3}(?:\\.[0-9]{1,3}){3}:(\\d+)", 1, msg_s))
+    | extend Proto = coalesce(tostring(protocol_s), extract(@"^([A-Z]+) request", 1, msg_s), "Unknown")
+};
+
+// FW_TotalEvents -> Tile
+FW_Base()
+| summarize TotalEvents = count()
+
+// FW_DenyRatio -> Percent Tile
+FW_Base()
+| summarize Total=count(), Deny=countif(Action =~ "Deny")
+| extend DenyRatio = iif(Total == 0, 0.0, round(todouble(Deny) * 100.0 / todouble(Total), 2))
+| project DenyRatio
+
+// FW_TimeSeries -> Line/Area
+FW_Base()
 | summarize Events=count() by bin(TimeGenerated, 15m), Action
 | order by TimeGenerated asc
 
-// Query 2: Top source/destination pairs
-AzureDiagnostics
-| where TimeGenerated > ago(24h)
-| where ResourceType == "AZUREFIREWALLS"
-| extend Src=tostring(msg_s), Dst=tostring(target_s)
-| summarize Events=count() by Src, Dst
-| top 20 by Events desc
-
-// Query 3: Protocol and port distribution
-AzureDiagnostics
-| where TimeGenerated > ago(24h)
-| where ResourceType == "AZUREFIREWALLS"
-| summarize Events=count() by protocol_s, DestinationPort=destinationPort_s
-| top 30 by Events desc
-
-// Query 4: VPN gateway diagnostics overview
-AzureDiagnostics
-| where TimeGenerated > ago(24h)
-| where ResourceType == "VIRTUALNETWORKGATEWAYS"
-| summarize Events=count() by Category, bin(TimeGenerated, 15m)
-| order by TimeGenerated asc
-
-// Query 5: Heatmap-ready dataset (hour x action)
-AzureDiagnostics
-| where TimeGenerated > ago(7d)
-| where ResourceType == "AZUREFIREWALLS"
-| extend Hour = format_datetime(TimeGenerated, "HH"), Action=tostring(action_s)
+// FW_Heatmap -> Heatmap
+FW_Base()
+| extend Hour = format_datetime(TimeGenerated, "HH")
 | summarize Events=count() by Hour, Action
 | order by Hour asc
 
+// FW_ProtoPort -> Donut
+FW_Base()
+| extend ProtoPort = strcat(Proto, ":", tostring(DstPort))
+| summarize Events=count() by ProtoPort
+| top 15 by Events desc
+
+// FW_TopFlow -> Grid
+FW_Base()
+| summarize Events=count() by SrcIp, DstIp, Action
+| top 25 by Events desc
+
+// FW_Raw -> Drilldown table
+FW_Base()
+| project TimeGenerated, Action, Category, SrcIp, DstIp, DstPort, Proto, msg_s, Resource
+| order by TimeGenerated desc
+
+// VPN_Health -> Grid or Bar
+AzureDiagnostics
+| where TimeGenerated {TimeRange:pTimeRange}
+| where ResourceType == "VIRTUALNETWORKGATEWAYS"
+| where isempty("{pRG}") or ResourceGroup == "{pRG}"
+| summarize Events=count() by Category
+| order by Events desc

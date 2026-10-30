@@ -1,42 +1,29 @@
-# Azure Workbooks Workshop: VPN · VNet Traffic · Azure Firewall Monitoring
+# Azure Workbooks Workshop: VPN, VNet Traffic, Azure Firewall
 
-2시간, Portal 중심, 참가자 직접 배포형 워크샵 저장소입니다.  
-단순 메트릭 차트가 아닌 다양한 시각화 중심으로 Azure Workbooks를 구성합니다.
+2시간, Azure Portal 중심, 참가자 직접 배포형 워크샵 저장소입니다.  
+상태: **구현 완료 · 실환경 미검증** (문서/쿼리/실행 자산 완성, 실제 Azure 리허설 로그는 미포함)
 
-## 대상
-- Azure Monitor/Workbook 입문~초중급
-- 네트워크 운영 관점 모니터링 시나리오를 빠르게 체험하려는 엔지니어
+## 이 저장소가 제공하는 것
+1. 목표-행동-데이터-화면-합격증거 연결표
+2. 참가자가 그대로 따라 할 수 있는 상세 Lab 절차(입력값/대기시간/오류분기 포함)
+3. Workbook 제작용 실행 쿼리와 시각화 매핑
+4. 트래픽 생성용 실행 자산(리눅스/윈도우)
+5. 종료(비용 정리) 절차
 
-## 학습 목표
-1. 실습 환경을 Portal에서 직접 배포한다.
-2. VPN/피어링/VNet 간 트래픽 흐름을 Workbook으로 분석한다.
-3. Azure Firewall 허용·차단 이벤트를 시각화하고 원인 추적한다.
-4. 멀티 시각화 대시보드를 조합해 운영 인사이트를 설명한다.
+## 빠른 시작
+1. [설계/실행 가능성 계약](docs/00-workshop-contract.md)
+2. [설계 제안서](docs/01-design-proposal.md)
+3. [Lab 가이드 (대표 Lab 포함)](docs/02-participant-lab-manual.md)
+4. [Workbook 시각화 정의](docs/03-workbook-visual-catalog.md)
+5. [VPN 모니터링 모드](docs/04-vpn-mode.md)
+6. [정리 절차](docs/99-cleanup.md)
 
-## 실습 아키텍처(요약)
-- VNet-Hub, VNet-Spoke, VNet Peering
-- VPN Gateway + Local Network Gateway(시뮬레이션)
-- Azure Firewall + Firewall Policy
-- 테스트용 VM 2대
-- Log Analytics Workspace
-- Azure Workbook
+## 실습 자산
+- KQL: `workbook/kql/monitoring-queries.kql`
+- Workbook 제작 시트: `workbook/templates/workbook-build-sheet.md`
+- 트래픽 생성 스크립트: `assets/traffic-gen/`
 
-## 워크샵 구성(2시간)
-- 00:00-00:10 오리엔테이션
-- 00:10-00:40 Lab 1: Portal 배포
-- 00:40-01:00 Lab 2: 트래픽/이벤트 생성
-- 01:00-01:35 Lab 3: Workbook 제작
-- 01:35-01:50 Lab 4: 분석 시나리오
-- 01:50-02:00 정리/삭제
-
-## 문서
-- [설계 제안서](docs/01-design-proposal.md)
-- [참가자 실습 가이드](docs/02-participant-lab-manual.md)
-- [Workbook 시각화 카탈로그](docs/03-workbook-visual-catalog.md)
-- [KQL 예시](workbook/kql/monitoring-queries.kql)
-
-## 운영 메모
-- 비용 주요 항목: VPN Gateway, Azure Firewall
-- 실습 종료 후 리소스 그룹 삭제를 기본 절차로 수행
-- 참가자별 고유 Prefix를 사용해 리소스 이름 충돌 방지
-
+## 주의 사항
+- 본 워크샵의 VPN 기본 트랙은 **명시적 합성 모드**(터널 미연결 관측 + Gateway 진단/메트릭)입니다.
+- 실제 S2S 터널 기반 데이터플레인 관측은 옵션 트랙(추가 30~40분)으로 분리되어 있습니다.
+- 비용 상위 항목은 VPN Gateway, Azure Firewall입니다. 종료 절차를 반드시 수행하세요.
