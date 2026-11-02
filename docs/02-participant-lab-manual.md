@@ -19,57 +19,39 @@
 
 ---
 
-## 1. Lab 1 - 환경 배포 및 라우팅 구성 (40분)
-목표: Firewall을 경유하는 트래픽 경로를 만든다.
+## 1. Lab 1 - Deploy to Azure로 기본 환경 배포 (40분)
+목표: 버튼 기반 배포로 실습 기반 리소스를 준비한다.
 
-### 1-1. Resource Group 생성
-1. Portal > **Resource groups** > **Create**
-2. Region `Korea Central`, Name `rg-wb-netmon-<PARTICIPANT>`
-3. Review + Create
+### 1-1. 배포 버튼 실행
+1. `README.md`의 **Deploy to Azure** 버튼 클릭
+2. Portal 로그인 후 구독/리소스 그룹 선택
+3. 파라미터 입력
+   - `prefix`: `<PARTICIPANT>` (예: p01)
+   - `location`: `koreacentral`
+   - `vpnSharedKey`: 실습 공유 키
+4. Review + Create
 
-정상 결과: RG 상태 `Succeeded`
+정상 결과: Deployment state `Succeeded`
 
-### 1-2. Hub/Spoke VNet 생성
-1. Portal > **Virtual networks** > **Create**
-2. Hub
-   - Address space: `10.10.0.0/16`
-   - Subnets:
-     - `AzureFirewallSubnet` `10.10.0.0/24`
-     - `GatewaySubnet` `10.10.1.0/27`
-     - `snet-hub-vm` `10.10.2.0/24`
-3. Spoke
-   - Address space: `10.20.0.0/16`
-   - Subnet: `snet-spoke-vm` `10.20.1.0/24`
+### 1-2. Outputs 및 리소스 확인
+1. Deployments > 현재 배포 > Outputs 탭 열기
+2. `firewallPrivateIp` 값 기록
+3. 아래 리소스 상태 확인
+   - `vnet-hub-<PARTICIPANT>`
+   - `vnet-spoke-<PARTICIPANT>`
+   - `afw-<PARTICIPANT>`
+   - `vpngw-<PARTICIPANT>`
+   - `law-wb-netmon-<PARTICIPANT>`
 
-정상 결과: Hub/Spoke VNet 각각 Provisioning state `Succeeded`
+정상 결과: 핵심 리소스 Provisioning state `Succeeded`
 
-### 1-3. VNet Peering
-1. Hub VNet > **Peerings** > Add
-2. 상대 VNet을 Spoke로 지정, 양방향 허용
-3. Spoke에서도 Hub 방향 피어링 생성
+### 1-3. 참가자가 수동으로 추가할 항목(학습 행동)
+템플릿은 기본 인프라까지만 배포합니다. 아래 항목은 직접 수행합니다.
+1. Hub/Spoke 테스트 VM 2대 생성
+2. Firewall 정책 내 Allow/Deny 룰 생성
+3. Diagnostic settings 연결
 
-정상 결과: 두 피어링 상태 `Connected`
-
-### 1-4. Azure Firewall + Policy
-1. Portal > **Firewalls** > Create
-2. Name `afw-<PARTICIPANT>`, Existing Virtual network `vnet-hub-<PARTICIPANT>`
-3. Firewall Policy `afwp-<PARTICIPANT>` 신규 생성
-4. 배포 완료 후 Private IP 기록
-
-정상 결과: Firewall Private IP 할당됨
-
-### 1-5. UDR로 Firewall 경유 강제
-1. Route table 생성: `rt-spoke-egress-<PARTICIPANT>`
-2. Route 추가
-   - Name: `to-hub-via-fw`
-   - Address prefix: `10.10.0.0/16`
-   - Next hop type: `Virtual appliance`
-   - Next hop IP: `<Firewall Private IP>`
-3. 이 Route table을 `snet-spoke-vm`에 연결
-
-정상 결과: Spoke VM 서브넷의 Effective routes에 사용자 정의 경로 표시
-
-### 1-6. VM 2대 생성
+### 1-4. VM 2대 생성
 1. Hub VM: `vm-hub-<PARTICIPANT>` / `snet-hub-vm`
 2. Spoke VM: `vm-spoke-<PARTICIPANT>` / `snet-spoke-vm`
 3. 테스트용 최소 사양 사용
@@ -83,9 +65,8 @@
 ## 2. Lab 2 - 진단 설정 및 데이터 생성 (20분)
 목표: Workbook이 사용할 로그를 실제로 쌓는다.
 
-### 2-1. Log Analytics Workspace 생성
-1. Portal > **Log Analytics workspaces** > Create
-2. Name `law-wb-netmon-<PARTICIPANT>`
+### 2-1. Log Analytics 확인
+`law-wb-netmon-<PARTICIPANT>` 리소스가 Lab 1 배포 결과로 생성되어 있어야 한다.
 
 ### 2-2. Diagnostic settings 연결
 1. Firewall 리소스 > **Diagnostic settings** > Add

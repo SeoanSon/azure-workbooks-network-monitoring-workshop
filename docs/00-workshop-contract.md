@@ -22,6 +22,15 @@
 3. Firewall 로그 분석은 **AzureDiagnostics 단일 모드**를 사용한다.
 4. VNet 간 트래픽은 UDR로 Firewall 경유를 강제해 로그를 일관되게 수집한다.
 
+## 3-1. Deploy to Azure 배포 계약
+1. 참가자는 README의 Deploy to Azure 버튼으로 `deploy/azuredeploy.json`을 배포한다.
+2. 템플릿 배포로 준비되는 항목: Hub/Spoke VNet, Peering, UDR, Firewall+Policy, VPN Gateway+Connection, Log Analytics.
+3. 학습 행동 보존을 위해 템플릿에서 의도적으로 제외한 항목:
+   - Firewall 상세 룰 구성
+   - Diagnostic settings 연결
+   - 트래픽 생성 및 Workbook 제작
+4. Outputs(`firewallPrivateIp` 등)는 후속 Lab 입력값으로 사용한다.
+
 ## 4. 시간 모델(라이브 2시간)
 - 00:00-00:15 배포 입력값/구조 설명
 - 00:15-00:55 배포 및 진단 연결
@@ -33,4 +42,3 @@
 - 상태: **구현 완료 · 실환경 미검증**
 - 의미: 참가자가 수행할 자산(절차/값/쿼리/스크립트)은 완성됨.  
   단, 실제 구독에서의 배포 성공/로그 지연/UI 차이는 별도 리허설로 검증 필요.
-

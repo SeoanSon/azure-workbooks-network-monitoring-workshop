@@ -1,0 +1,372 @@
+{
+  "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+  "contentVersion": "1.0.0.0",
+  "parameters": {
+    "prefix": {
+      "type": "string",
+      "defaultValue": "netmon01",
+      "minLength": 3,
+      "maxLength": 20,
+      "metadata": {
+        "description": "리소스 이름 접두사(소문자, 숫자, 하이픈). 예: p01"
+      }
+    },
+    "location": {
+      "type": "string",
+      "defaultValue": "[resourceGroup().location]",
+      "metadata": {
+        "description": "배포 지역"
+      }
+    },
+    "hubAddressPrefix": {
+      "type": "string",
+      "defaultValue": "10.10.0.0/16",
+      "metadata": {
+        "description": "Hub VNet 주소 대역"
+      }
+    },
+    "spokeAddressPrefix": {
+      "type": "string",
+      "defaultValue": "10.20.0.0/16",
+      "metadata": {
+        "description": "Spoke VNet 주소 대역"
+      }
+    },
+    "vpnSharedKey": {
+      "type": "secureString",
+      "metadata": {
+        "description": "VPN connection shared key"
+      }
+    },
+    "onPremGatewayPublicIp": {
+      "type": "string",
+      "defaultValue": "203.0.113.10",
+      "metadata": {
+        "description": "시뮬레이션용 온프렘 VPN 장비 Public IP"
+      }
+    },
+    "onPremAddressPrefix": {
+      "type": "string",
+      "defaultValue": "172.16.0.0/16",
+      "metadata": {
+        "description": "시뮬레이션용 온프렘 주소 대역"
+      }
+    }
+  },
+  "variables": {
+    "hubVnetName": "[format('vnet-hub-{0}', parameters('prefix'))]",
+    "spokeVnetName": "[format('vnet-spoke-{0}', parameters('prefix'))]",
+    "firewallPolicyName": "[format('afwp-{0}', parameters('prefix'))]",
+    "firewallName": "[format('afw-{0}', parameters('prefix'))]",
+    "firewallPipName": "[format('pip-afw-{0}', parameters('prefix'))]",
+    "routeTableName": "[format('rt-spoke-egress-{0}', parameters('prefix'))]",
+    "workspaceName": "[format('law-wb-netmon-{0}', parameters('prefix'))]",
+    "vpnGatewayPipName": "[format('pip-vpngw-{0}', parameters('prefix'))]",
+    "vpnGatewayName": "[format('vpngw-{0}', parameters('prefix'))]",
+    "localGatewayName": "[format('lng-{0}', parameters('prefix'))]",
+    "vpnConnectionName": "[format('conn-s2s-{0}', parameters('prefix'))]"
+  },
+  "resources": [
+    {
+      "type": "Microsoft.Network/virtualNetworks",
+      "apiVersion": "2023-11-01",
+      "name": "[variables('hubVnetName')]",
+      "location": "[parameters('location')]",
+      "properties": {
+        "addressSpace": {
+          "addressPrefixes": [
+            "[parameters('hubAddressPrefix')]"
+          ]
+        },
+        "subnets": [
+          {
+            "name": "AzureFirewallSubnet",
+            "properties": {
+              "addressPrefix": "10.10.0.0/24"
+            }
+          },
+          {
+            "name": "GatewaySubnet",
+            "properties": {
+              "addressPrefix": "10.10.1.0/27"
+            }
+          },
+          {
+            "name": "snet-hub-vm",
+            "properties": {
+              "addressPrefix": "10.10.2.0/24"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "type": "Microsoft.Network/virtualNetworks",
+      "apiVersion": "2023-11-01",
+      "name": "[variables('spokeVnetName')]",
+      "location": "[parameters('location')]",
+      "properties": {
+        "addressSpace": {
+          "addressPrefixes": [
+            "[parameters('spokeAddressPrefix')]"
+          ]
+        },
+        "subnets": [
+          {
+            "name": "snet-spoke-vm",
+            "properties": {
+              "addressPrefix": "10.20.1.0/24"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "type": "Microsoft.Network/publicIPAddresses",
+      "apiVersion": "2023-11-01",
+      "name": "[variables('firewallPipName')]",
+      "location": "[parameters('location')]",
+      "sku": {
+        "name": "Standard"
+      },
+      "properties": {
+        "publicIPAllocationMethod": "Static"
+      }
+    },
+    {
+      "type": "Microsoft.Network/firewallPolicies",
+      "apiVersion": "2023-11-01",
+      "name": "[variables('firewallPolicyName')]",
+      "location": "[parameters('location')]",
+      "properties": {}
+    },
+    {
+      "type": "Microsoft.Network/azureFirewalls",
+      "apiVersion": "2023-11-01",
+      "name": "[variables('firewallName')]",
+      "location": "[parameters('location')]",
+      "dependsOn": [
+        "[resourceId('Microsoft.Network/virtualNetworks', variables('hubVnetName'))]",
+        "[resourceId('Microsoft.Network/publicIPAddresses', variables('firewallPipName'))]",
+        "[resourceId('Microsoft.Network/firewallPolicies', variables('firewallPolicyName'))]"
+      ],
+      "properties": {
+        "firewallPolicy": {
+          "id": "[resourceId('Microsoft.Network/firewallPolicies', variables('firewallPolicyName'))]"
+        },
+        "ipConfigurations": [
+          {
+            "name": "afw-ipconfig",
+            "properties": {
+              "subnet": {
+                "id": "[resourceId('Microsoft.Network/virtualNetworks/subnets', variables('hubVnetName'), 'AzureFirewallSubnet')]"
+              },
+              "publicIPAddress": {
+                "id": "[resourceId('Microsoft.Network/publicIPAddresses', variables('firewallPipName'))]"
+              }
+            }
+          }
+        ]
+      }
+    },
+    {
+      "type": "Microsoft.Network/routeTables",
+      "apiVersion": "2023-11-01",
+      "name": "[variables('routeTableName')]",
+      "location": "[parameters('location')]",
+      "dependsOn": [
+        "[resourceId('Microsoft.Network/azureFirewalls', variables('firewallName'))]"
+      ],
+      "properties": {
+        "routes": [
+          {
+            "name": "to-hub-via-fw",
+            "properties": {
+              "addressPrefix": "10.10.0.0/16",
+              "nextHopType": "VirtualAppliance",
+              "nextHopIpAddress": "[reference(resourceId('Microsoft.Network/azureFirewalls', variables('firewallName')), '2023-11-01').ipConfigurations[0].properties.privateIPAddress]"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "type": "Microsoft.Network/virtualNetworks/subnets",
+      "apiVersion": "2023-11-01",
+      "name": "[format('{0}/{1}', variables('spokeVnetName'), 'snet-spoke-vm')]",
+      "dependsOn": [
+        "[resourceId('Microsoft.Network/virtualNetworks', variables('spokeVnetName'))]",
+        "[resourceId('Microsoft.Network/routeTables', variables('routeTableName'))]"
+      ],
+      "properties": {
+        "addressPrefix": "10.20.1.0/24",
+        "routeTable": {
+          "id": "[resourceId('Microsoft.Network/routeTables', variables('routeTableName'))]"
+        }
+      }
+    },
+    {
+      "type": "Microsoft.Network/virtualNetworks/virtualNetworkPeerings",
+      "apiVersion": "2023-11-01",
+      "name": "[format('{0}/{1}', variables('hubVnetName'), format('peer-to-{0}', variables('spokeVnetName')))]",
+      "dependsOn": [
+        "[resourceId('Microsoft.Network/virtualNetworks', variables('hubVnetName'))]",
+        "[resourceId('Microsoft.Network/virtualNetworks', variables('spokeVnetName'))]"
+      ],
+      "properties": {
+        "allowVirtualNetworkAccess": true,
+        "allowForwardedTraffic": true,
+        "allowGatewayTransit": false,
+        "useRemoteGateways": false,
+        "remoteVirtualNetwork": {
+          "id": "[resourceId('Microsoft.Network/virtualNetworks', variables('spokeVnetName'))]"
+        }
+      }
+    },
+    {
+      "type": "Microsoft.Network/virtualNetworks/virtualNetworkPeerings",
+      "apiVersion": "2023-11-01",
+      "name": "[format('{0}/{1}', variables('spokeVnetName'), format('peer-to-{0}', variables('hubVnetName')))]",
+      "dependsOn": [
+        "[resourceId('Microsoft.Network/virtualNetworks', variables('hubVnetName'))]",
+        "[resourceId('Microsoft.Network/virtualNetworks', variables('spokeVnetName'))]"
+      ],
+      "properties": {
+        "allowVirtualNetworkAccess": true,
+        "allowForwardedTraffic": true,
+        "allowGatewayTransit": false,
+        "useRemoteGateways": false,
+        "remoteVirtualNetwork": {
+          "id": "[resourceId('Microsoft.Network/virtualNetworks', variables('hubVnetName'))]"
+        }
+      }
+    },
+    {
+      "type": "Microsoft.OperationalInsights/workspaces",
+      "apiVersion": "2022-10-01",
+      "name": "[variables('workspaceName')]",
+      "location": "[parameters('location')]",
+      "properties": {
+        "sku": {
+          "name": "PerGB2018"
+        },
+        "retentionInDays": 30
+      }
+    },
+    {
+      "type": "Microsoft.Network/publicIPAddresses",
+      "apiVersion": "2023-11-01",
+      "name": "[variables('vpnGatewayPipName')]",
+      "location": "[parameters('location')]",
+      "sku": {
+        "name": "Standard"
+      },
+      "properties": {
+        "publicIPAllocationMethod": "Static"
+      }
+    },
+    {
+      "type": "Microsoft.Network/virtualNetworkGateways",
+      "apiVersion": "2023-11-01",
+      "name": "[variables('vpnGatewayName')]",
+      "location": "[parameters('location')]",
+      "dependsOn": [
+        "[resourceId('Microsoft.Network/virtualNetworks', variables('hubVnetName'))]",
+        "[resourceId('Microsoft.Network/publicIPAddresses', variables('vpnGatewayPipName'))]"
+      ],
+      "properties": {
+        "sku": {
+          "name": "VpnGw1",
+          "tier": "VpnGw1"
+        },
+        "gatewayType": "Vpn",
+        "vpnType": "RouteBased",
+        "enableBgp": false,
+        "activeActive": false,
+        "ipConfigurations": [
+          {
+            "name": "gwipconfig",
+            "properties": {
+              "privateIPAllocationMethod": "Dynamic",
+              "publicIPAddress": {
+                "id": "[resourceId('Microsoft.Network/publicIPAddresses', variables('vpnGatewayPipName'))]"
+              },
+              "subnet": {
+                "id": "[resourceId('Microsoft.Network/virtualNetworks/subnets', variables('hubVnetName'), 'GatewaySubnet')]"
+              }
+            }
+          }
+        ]
+      }
+    },
+    {
+      "type": "Microsoft.Network/localNetworkGateways",
+      "apiVersion": "2023-11-01",
+      "name": "[variables('localGatewayName')]",
+      "location": "[parameters('location')]",
+      "properties": {
+        "gatewayIpAddress": "[parameters('onPremGatewayPublicIp')]",
+        "localNetworkAddressSpace": {
+          "addressPrefixes": [
+            "[parameters('onPremAddressPrefix')]"
+          ]
+        }
+      }
+    },
+    {
+      "type": "Microsoft.Network/connections",
+      "apiVersion": "2023-11-01",
+      "name": "[variables('vpnConnectionName')]",
+      "location": "[parameters('location')]",
+      "dependsOn": [
+        "[resourceId('Microsoft.Network/virtualNetworkGateways', variables('vpnGatewayName'))]",
+        "[resourceId('Microsoft.Network/localNetworkGateways', variables('localGatewayName'))]"
+      ],
+      "properties": {
+        "virtualNetworkGateway1": {
+          "id": "[resourceId('Microsoft.Network/virtualNetworkGateways', variables('vpnGatewayName'))]"
+        },
+        "localNetworkGateway2": {
+          "id": "[resourceId('Microsoft.Network/localNetworkGateways', variables('localGatewayName'))]"
+        },
+        "connectionType": "IPsec",
+        "routingWeight": 10,
+        "sharedKey": "[parameters('vpnSharedKey')]"
+      }
+    }
+  ],
+  "outputs": {
+    "hubVnetName": {
+      "type": "string",
+      "value": "[variables('hubVnetName')]"
+    },
+    "spokeVnetName": {
+      "type": "string",
+      "value": "[variables('spokeVnetName')]"
+    },
+    "firewallName": {
+      "type": "string",
+      "value": "[variables('firewallName')]"
+    },
+    "firewallPrivateIp": {
+      "type": "string",
+      "value": "[reference(resourceId('Microsoft.Network/azureFirewalls', variables('firewallName')), '2023-11-01').ipConfigurations[0].properties.privateIPAddress]"
+    },
+    "workspaceName": {
+      "type": "string",
+      "value": "[variables('workspaceName')]"
+    },
+    "vpnGatewayName": {
+      "type": "string",
+      "value": "[variables('vpnGatewayName')]"
+    },
+    "vpnConnectionName": {
+      "type": "string",
+      "value": "[variables('vpnConnectionName')]"
+    },
+    "postDeployNextSteps": {
+      "type": "string",
+      "value": "Follow docs/02-participant-lab-manual.md: add diagnostic settings, create firewall rules, generate traffic, build workbook."
+    }
+  }
+}
