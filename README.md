@@ -1,4 +1,4 @@
-# Azure Workbooks Workshop: VPN, VNet Traffic, Azure Firewall 
+# Azure Workbooks Workshop: Express Route, VPN, VNet Traffic
 
 [![Deploy to Azure](https://aka.ms/deploytoazurebutton)](https://portal.azure.com/#create/Microsoft.Template/uri/https%3A%2F%2Fraw.githubusercontent.com%2FSeoanSon%2Fazure-workbooks-network-monitoring-workshop%2Fmain%2Fdeploy%2Fazuredeploy.json)
 
