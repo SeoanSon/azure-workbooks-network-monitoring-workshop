@@ -1,7 +1,4 @@
-# Azure Workbooks Workshop: VPN, VNet Traffic, Azure Firewall
-
-2시간, Azure Portal 중심, 참가자 직접 배포형 워크샵 저장소입니다.  
-상태: **구현 완료 · 실환경 미검증** (문서/쿼리/실행 자산 완성, 실제 Azure 리허설 로그는 미포함)
+# Azure Workbooks Workshop: VPN, VNet Traffic, Azure Firewall 
 
 [![Deploy to Azure](https://aka.ms/deploytoazurebutton)](https://portal.azure.com/#create/Microsoft.Template/uri/https%3A%2F%2Fraw.githubusercontent.com%2FSeoanSon%2Fazure-workbooks-network-monitoring-workshop%2Fmain%2Fdeploy%2Fazuredeploy.json)
 
@@ -28,7 +25,3 @@
 - Workbook 제작 시트: `workbook/templates/workbook-build-sheet.md`
 - 트래픽 생성 스크립트: `assets/traffic-gen/`
 
-## 주의 사항
-- 본 워크샵의 VPN 기본 트랙은 **명시적 합성 모드**(터널 미연결 관측 + Gateway 진단/메트릭)입니다.
-- 실제 S2S 터널 기반 데이터플레인 관측은 옵션 트랙(추가 30~40분)으로 분리되어 있습니다.
-- 비용 상위 항목은 VPN Gateway, Azure Firewall입니다. 종료 절차를 반드시 수행하세요.
